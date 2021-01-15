@@ -55,6 +55,4 @@ streamlit run app.py
 **Run online**
 
 <https://essential-stock-analysis.herokuapp.com/>
-# StockPredictionWebApp
-# StockPredictionWebApp
-# StockPredictionWebApp
+
