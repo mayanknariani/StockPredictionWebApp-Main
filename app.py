@@ -422,7 +422,6 @@ class Tweet(object):
         self.content = content
         self.polarity = polarity
 
-@st.cache(suppress_st_warning=True)
 def retrieving_tweets_polarity(symbol):
     consumer_key = 'E0pFYVai9VaOhqLiRBEC6gpGF'
     consumer_secret = 'XAMh4l9XL5nwFK3MN5tAjtXA2YgDN1tw5f7L2n6dz5ib8VYlbm'
