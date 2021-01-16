@@ -4,6 +4,8 @@ numpy
 pandas
 FundamentalAnalysis
 fbprophet
+sklearn
+alpha_vantage.foreignexchange
 yfinance
 scipy
 plotly
