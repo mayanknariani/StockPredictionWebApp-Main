@@ -3,6 +3,7 @@ matplotlib
 numpy 
 pandas
 FundamentalAnalysis
+fbprophet
 yfinance
 scipy
 plotly

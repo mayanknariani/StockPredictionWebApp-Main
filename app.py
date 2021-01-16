@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt, pandas as pd, numpy as np
 import matplotlib
 from PIL import Image
 matplotlib.use('Agg')
-from fbprophet import Prophet
+#from fbprophet import Prophet
+#import plotly.graph_objects as go
 from datetime import datetime
 from alpha_vantage.foreignexchange import ForeignExchange
 from matplotlib.pyplot import rc
@@ -116,6 +117,7 @@ def plotData(ticker, start, end):
     ax[1].grid(True)
     st.pyplot()
 
+@st.cache(suppress_st_warning=True)
 def prophet():
     df =get_historical(from1,to1,timeframe)
 
@@ -164,36 +166,45 @@ def plotData1():
 
     df.index = pd.to_datetime(df.index)
 
-    set_pub()
+    #set_pub()
 
-    fig= df['Close'].plot()
-    plt.tight_layout()
-    plt.title(ticker1 + ': '+ timeframe)
+
+
+    #df['MA5'] = df.close.rolling(5).mean()
+    #df['MA20'] = df.close.rolling(20).mean()
+
+    #fig= df['Close'].plot()
+    #plt.tight_layout()
+    #plt.title(ticker1 + ': '+ timeframe)
     #df = df.to_csv('ticker1' + ".csv")
-    plt.grid(True)
-    plt.show()
+    #plt.grid(True)
+    #plt.show()
 
+    fig = go.Figure()
 
+    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close']))
 
     ma1_checkbox = st.checkbox('Moving Average 1')
 
     ma2_checkbox = st.checkbox('Moving Average 2')
 
     if ma1_checkbox:
-        days1 = st.slider('Business Days to roll MA1', 5, 150, 30)
+        days1 = st.slider('Slow Moving Average', 5, 50, 10)
         ma1 = df['Close'].rolling(days1).mean()
-        fig.plot(ma1, 'b-', label='MA %s points' % days1)
-        fig.legend(loc='best')
+        #fig(ma1, 'b-', label='MA %s points' % days1)
+        #fig.legend(loc='best')
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'].rolling(days1).mean(), line=dict(color='Black', width=1)))
 
     if ma2_checkbox:
-        days2 = st.slider('Business Days to roll MA2', 5, 150, 30)
+        days2 = st.slider('Fast Moving Average', 5, 200, 30)
         ma2 = df['Close'].rolling(days2).mean()
-        fig.plot(ma2, color='magenta', label='MA %s points' % days2)
-        fig.legend(loc='best')
+        #fig.plot(ma2, color='magenta', label='MA %s points' % days2)
+        #fig.legend(loc='best')
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'].rolling(days2).mean(),line=dict(color='orange', width=1)))
 
 
+    st.plotly_chart(fig)
     st.set_option('deprecation.showPyplotGlobalUse', False)
-    st.pyplot()
 
 def rolling_sharpe(y):
     def geom_mean(y):
@@ -334,7 +345,7 @@ sp500_list = pd.read_csv('SP500_list.csv')
 Currency_list = pd.read_csv('Currency_list.csv')
 
 
-ticker = st.selectbox('Select the ticker if present in the S&P 500 index', sp500_list['Symbol'], index = 5).upper()
+#ticker = st.selectbox('Select the ticker if present in the S&P 500 index', sp500_list['Symbol'], index = 5).upper()
 ticker1 = st.selectbox('Select the following Forex ticker',Currency_list['Symbol'], index = 2)
 from1 = ticker1[0:3]
 to1 = ticker1[3:]
@@ -345,8 +356,8 @@ pivot_sector = True
     #ticker = st.text_input('Write the ticker (check it in yahoo finance)', 'MN.MI').upper()
 
 
-start = st.text_input('Enter the start date in yyyy-mm-dd format:', '2018-01-01')
-end = st.text_input('Enter the end date in yyyy-mm-dd format:', '2019-01-01')
+#start = st.text_input('Enter the start date in yyyy-mm-dd format:', '2018-01-01')
+#end = st.text_input('Enter the end date in yyyy-mm-dd format:', '2019-01-01')
 
 timeframe = st.selectbox('Please enter the timeframe:',Currency_list['Timeframe'], index = 2)
 
@@ -411,6 +422,7 @@ class Tweet(object):
         self.content = content
         self.polarity = polarity
 
+@st.cache(suppress_st_warning=True)
 def retrieving_tweets_polarity(symbol):
     consumer_key = 'E0pFYVai9VaOhqLiRBEC6gpGF'
     consumer_secret = 'XAMh4l9XL5nwFK3MN5tAjtXA2YgDN1tw5f7L2n6dz5ib8VYlbm'
@@ -542,11 +554,12 @@ def recommending(df, global_polarity, today_stock, mean=1.5):
 
     return idea, decision
 
+@st.cache(suppress_st_warning=True)
 def lstm():
     from sklearn.preprocessing import MinMaxScaler
     df = get_historical(from1,to1,timeframe)
     df.index = pd.to_datetime(df.index)
-    df = reset_my_index(df)
+    #df = reset_my_index(df)
 
     #Preprocessing
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -567,13 +580,13 @@ def lstm():
     X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
 
     model = Sequential()
-    model.add(LSTM(10, return_sequences=False,input_shape=(300, 1)))
+    model.add(LSTM(40, return_sequences=False,input_shape=(300, 1)))
     #model.add(LSTM(50, return_sequences=True))
     #model.add(LSTM(50))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam')
 
-    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=20, batch_size=64, verbose=1)
+    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=5, batch_size=64, verbose=1)
 
     train_predict = model.predict(X_train)
     test_predict = model.predict(X_test)
@@ -599,6 +612,8 @@ def lstm():
     testPredictPlot[:, :] = numpy.nan
     testPredictPlot[len(train_predict) + (look_back * 2) + 1:len(df1) - 1, :] = test_predict
     # plot baseline and predictions
+
+
     plt.plot(scaler.inverse_transform(df1))
     plt.plot(trainPredictPlot)
     plt.legend(loc='best')
@@ -679,118 +694,121 @@ def lstm():
     plt.tight_layout()
     st.pyplot()
 
-    return st.write(out1,exit1)
+    st.text(out1)
+    st.text(exit1)
 
-try:
-    start = parse(start).date()
-    print('The start date is valid')
-    control_date1 = True
-except ValueError:
-    st.error('Invalid Start date')
-    control_date1 = False
+#try:
+    #start = parse(start).date()
+    #print('The start date is valid')
+    #ontrol_date1 = True
+#except ValueError:
+    #st.error('Invalid Start date')
+    #control_date1 = False
 
 
-try:
-    end = parse(end).date()
+#try:
+    #end = parse(end).date()
     #print('The end date is valid')
-    control_date2 = True
-except ValueError:
-    st.error('Invalid End date')
-    control_date2 = False
+    #control_date2 = True
+#except ValueError:
+    #st.error('Invalid End date')
+    #control_date2 = False
 
-def check_dates():
-    return control_date1 & control_date2
-
-
-if start <= datetime(2000,1,1,0).date():
-    st.error('Please insert a date posterior to 1st January 1970')
-    pivot_date = False
-else:
-    pivot_date = True
+#def check_dates():
+ #   return control_date1 & control_date2
 
 
-if check_dates() and pivot_date == True:
+#if start <= datetime(2000,1,1,0).date():
+    #st.error('Please insert a date posterior to 1st January 1970')
+    #pivot_date = False
+    #else:
+    #pivot_date = True
 
 
-    if len(loadData(ticker, start, end)) > 0: # if the ticker is invalid the function returns an empty series
+#if check_dates() and pivot_date == True:
 
 
-        image = Image.open('imageforapp2.jpg')
-
-        st.sidebar.image(image, caption='', use_column_width=True)
-
-        st.sidebar.header('Stock prediction analysis')
-
-        st.sidebar.subheader('Please select option to visualise ')
-
-        #ticker_meta = yf.Ticker(ticker)
-
-        #series_info  = pd.Series(ticker_meta.info)
-        #series_info= series_info.reindex(reversed(list(ticker_meta.info.keys())))
-        #series_info = series_info.loc[['symbol', 'shortName', 'financialCurrency','exchange',
-                          #'fullExchangeName', 'exchangeTimezoneName', 'marketCap', 'quoteType']]
-        #if pivot_sector:
-            #sector = sp500_list[sp500_list['Symbol'] == ticker]['Sector']
-            #sector = sector.values[0]
-            #series_info['sector'] = sector
+    #if len(loadData(ticker, start, end)) > 0: # if the ticker is invalid the function returns an empty series
 
 
-        #series_info.name = 'Stock'
-        #st.dataframe(series_info)
+image = Image.open('imageforapp2.jpg')
 
-        principal_graphs_checkbox = st.sidebar.checkbox('Stock selection: ', value = True)
-        #principal_graphs_checkbox1 = st.button('Submit')
-        if principal_graphs_checkbox:
-            plotData1()
+st.sidebar.image(image, caption='', use_column_width=True)
 
-        std_ret_checkbox = st.sidebar.checkbox('LSTM Prediction')
-        if std_ret_checkbox:
-            st.title('LSTM Prediction')
-            st.warning('Calculating .... ')
-            st.subheader(lstm())
+st.sidebar.header('Stock prediction analysis')
 
-        std_ret_checkbox1 = st.sidebar.checkbox('Facebook Prophet Prediction')
-        if std_ret_checkbox1:
-            st.title('Facebook Prophet Prediction')
-            st.subheader(prophet())
+st.sidebar.subheader('Please select option to visualise ')
 
-        trailing_checkbox = st.sidebar.checkbox('Sentiment Analysis')
-        if trailing_checkbox:
-            st.title('Sentiment Analysis')
-            st.subheader(retrieving_tweets_polarity(ticker1))
+#ticker_meta = yf.Ticker(ticker)
+
+#series_info  = pd.Series(ticker_meta.info)
+#series_info= series_info.reindex(reversed(list(ticker_meta.info.keys())))
+#series_info = series_info.loc[['symbol', 'shortName', 'financialCurrency','exchange',
+                  #'fullExchangeName', 'exchangeTimezoneName', 'marketCap', 'quoteType']]
+#if pivot_sector:
+    #sector = sp500_list[sp500_list['Symbol'] == ticker]['Sector']
+    #sector = sector.values[0]
+    #series_info['sector'] = sector
 
 
-            #st.subheader('Interquartile range : Q3 - Q1')
-            #st.subheader('Upper threshold : Q3 + 1.5IQR')
-            #st.subheader('Lower threshold : Q1 - 1.5IQR')
-            #st.write('')
-            #plot_trailing(ticker, start, end)
+#series_info.name = 'Stock'
+#st.dataframe(series_info)
 
-       # fundamental_checkbox = st.sidebar.checkbox('Fundamental Analysis')
-       # if fundamental_checkbox:
-            #''' ## Fundamental analysis '''
-           # st.title('Summary')
-            #st.dataframe(summary_stats(ticker))
+principal_graphs_checkbox = st.sidebar.checkbox('Stock selection: ', value = True)
 
-          #  st.title('Ratios and indicators')
-          #  st.dataframe(ratio_indicators(ticker))
+principal_graphs_checkbox1 = st.button('Submit')
+if principal_graphs_checkbox1 or principal_graphs_checkbox:
+    plotData1()
 
-        #rs_checkbox = st.sidebar.checkbox('Rolling Sharpe ratio vs Rolling Sharpe ratio S&P500, (annualized)')
-       # if rs_checkbox:
-         #   ''' # Rolling Sharpe Ratio '''
-       #     ''' We compare the geometric rolling sharpe ratio (RSR) of the stock with the geometric rolling sharpe ratio of S&P500 (TR).
-        #    We calculate the RSR by fixing the risk free rate equal to 0.
-        #    Hence *RSR = rolling_returns_mean / rolling_returns_std*.
-        ##    '''
-         #   rolling_sharpe_plot(ticker, start, end)
+std_ret_checkbox = st.sidebar.checkbox('LSTM Prediction',value = True)
 
-        #historical_prices_checkbox = st.sidebar.checkbox('Historical prices and volumes')
-        #if historical_prices_checkbox:
-         #   st.title('Historical prices and volumes')
-          #  get_data_yahoo(ticker, start, end)
+if std_ret_checkbox:
+    st.title('LSTM Prediction')
+    #st.warning('Calculating .... ')
+    st.subheader(lstm())
 
-    else:
-        st.error('Invalid ticker')
+std_ret_checkbox1 = st.sidebar.checkbox('Facebook Prophet Prediction',value = True)
+if std_ret_checkbox1:
+    st.title('Facebook Prophet Prediction')
+    st.subheader(prophet())
+
+trailing_checkbox = st.sidebar.checkbox('Sentiment Analysis',value=True)
+if trailing_checkbox:
+    st.title('Twitter Sentiment Analysis')
+    st.subheader(retrieving_tweets_polarity(ticker1))
+
+
+    #st.subheader('Interquartile range : Q3 - Q1')
+    #st.subheader('Upper threshold : Q3 + 1.5IQR')
+    #st.subheader('Lower threshold : Q1 - 1.5IQR')
+    #st.write('')
+    #plot_trailing(ticker, start, end)
+
+# fundamental_checkbox = st.sidebar.checkbox('Fundamental Analysis')
+# if fundamental_checkbox:
+    #''' ## Fundamental analysis '''
+   # st.title('Summary')
+    #st.dataframe(summary_stats(ticker))
+
+  #  st.title('Ratios and indicators')
+  #  st.dataframe(ratio_indicators(ticker))
+
+#rs_checkbox = st.sidebar.checkbox('Rolling Sharpe ratio vs Rolling Sharpe ratio S&P500, (annualized)')
+# if rs_checkbox:
+ #   ''' # Rolling Sharpe Ratio '''
+#     ''' We compare the geometric rolling sharpe ratio (RSR) of the stock with the geometric rolling sharpe ratio of S&P500 (TR).
+#    We calculate the RSR by fixing the risk free rate equal to 0.
+#    Hence *RSR = rolling_returns_mean / rolling_returns_std*.
+##    '''
+ #   rolling_sharpe_plot(ticker, start, end)
+
+#historical_prices_checkbox = st.sidebar.checkbox('Historical prices and volumes')
+#if historical_prices_checkbox:
+ #   st.title('Historical prices and volumes')
+  #  get_data_yahoo(ticker, start, end)
+
+    #else:
+        #st.error('Invalid ticker')
 
 
 
