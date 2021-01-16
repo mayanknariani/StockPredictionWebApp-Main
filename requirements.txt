@@ -5,6 +5,10 @@ pandas
 FundamentalAnalysis
 fbprophet
 sklearn
+keras
+tweepy
+textblob
+preprocessor
 alpha-vantage
 yfinance
 scipy
