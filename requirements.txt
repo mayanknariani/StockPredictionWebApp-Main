@@ -5,7 +5,7 @@ pandas
 FundamentalAnalysis
 fbprophet
 sklearn
-alpha_vantage.foreignexchange
+alpha-vantage
 yfinance
 scipy
 plotly
