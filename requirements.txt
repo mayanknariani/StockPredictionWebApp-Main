@@ -7,9 +7,10 @@ fbprophet
 sklearn
 keras ==2.3.1
 tweepy
-tensorflow
+tensorflow ==2.2
 textblob
 preprocessor
+tensorflow.keras
 alpha-vantage
 yfinance
 scipy
