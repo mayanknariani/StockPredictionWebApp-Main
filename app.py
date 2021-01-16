@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt, pandas as pd, numpy as np
 import matplotlib
 from PIL import Image
 matplotlib.use('Agg')
-#from fbprophet import Prophet
-#import plotly.graph_objects as go
+from fbprophet import Prophet
+import plotly.graph_objects as go
 from datetime import datetime
 from alpha_vantage.foreignexchange import ForeignExchange
 from matplotlib.pyplot import rc
