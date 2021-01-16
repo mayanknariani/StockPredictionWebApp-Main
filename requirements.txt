@@ -5,7 +5,7 @@ pandas
 FundamentalAnalysis
 fbprophet
 sklearn
-keras
+keras ==2.3.1
 tweepy
 textblob
 preprocessor
