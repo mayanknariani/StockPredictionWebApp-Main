@@ -5,6 +5,7 @@ import matplotlib
 from PIL import Image
 matplotlib.use('Agg')
 from fbprophet import Prophet
+
 import plotly.graph_objects as go
 from datetime import datetime
 from alpha_vantage.foreignexchange import ForeignExchange
@@ -26,6 +27,7 @@ import tweepy
 import pandas as pd
 from textblob import TextBlob
 import preprocessor as p
+from preprocessor import api
 import re
 
 
@@ -36,13 +38,13 @@ def set_pub():
     plt.style.use('bmh')
     rc('lines', linewidth=1.3, color='b')
 
-@st.cache(suppress_st_warning=True)
+
 def loadData(ticker, start, end):
      df_stockdata = pdr.get_data_yahoo(ticker, start= str(start), end = str(end) )['Adj Close']
      df_stockdata.index = pd.to_datetime(df_stockdata.index)
      return df_stockdata
 
-@st.cache(suppress_st_warning=True)
+
 def get_historical(ticker):
     cc = ForeignExchange(key='N6A6QT6IBFJOPJ70', output_format='pandas')
     data, meta_data = cc.get_currency_exchange_intraday(from_symbol=ticker[0:3], to_symbol=ticker[3:], interval=timeframe ,outputsize='full')
@@ -117,7 +119,6 @@ def plotData(ticker, start, end):
     ax[1].grid(True)
     st.pyplot()
 
-@st.cache(suppress_st_warning=True)
 def prophet():
     df =get_historical(from1,to1,timeframe)
 
@@ -160,7 +161,7 @@ def prophet():
     plt.show()
     st.pyplot(fig)
 
-
+@st.cache(suppress_st_warning=True)
 def plotData1():
     df = get_historical(from1,to1,timeframe)
 
@@ -450,7 +451,7 @@ def retrieving_tweets_polarity(symbol):
         tw2 = tweet.full_text
         tw = tweet.full_text
         # Clean
-        tw = p.clean(tw)
+        tw = api.clean(tw)
         # print("-------------------------------CLEANED TWEET-----------------------------")
         # print(tw)
         # Replace &amp; by &
@@ -519,7 +520,7 @@ def retrieving_tweets_polarity(symbol):
         #print("##############################################################################")
         #print()
         tw_pol = "Overall Negative"
-    return global_polarity,pos, neg, neutral
+
 
 
 def recommending(df, global_polarity, today_stock, mean=1.5):
@@ -553,7 +554,6 @@ def recommending(df, global_polarity, today_stock, mean=1.5):
 
     return idea, decision
 
-@st.cache(suppress_st_warning=True)
 def lstm():
     from sklearn.preprocessing import MinMaxScaler
     df = get_historical(from1,to1,timeframe)
