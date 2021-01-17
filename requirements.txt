@@ -10,7 +10,6 @@ tweepy
 tensorflow ==2.2
 textblob
 preprocessor
-tensorflow.keras
 alpha-vantage
 yfinance
 scipy
