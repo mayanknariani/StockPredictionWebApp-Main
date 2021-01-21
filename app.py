@@ -1,4 +1,5 @@
 import FundamentalAnalysis as fa
+import nltk
 import streamlit as st
 import matplotlib.pyplot as plt, pandas as pd, numpy as np
 import matplotlib
@@ -29,6 +30,10 @@ from textblob import TextBlob
 import preprocessor as p
 from preprocessor import api
 import re
+
+
+import keras.backend.tensorflow_backend as tb
+tb._SYMBOLIC_SCOPE.value = True
 
 
 def set_pub():
@@ -161,7 +166,7 @@ def prophet():
     plt.show()
     st.pyplot(fig)
 
-@st.cache(suppress_st_warning=True)
+
 def plotData1():
     df = get_historical(from1,to1,timeframe)
 
@@ -429,7 +434,7 @@ def retrieving_tweets_polarity(symbol):
 
     access_token = '3261604734-86c7DOJP98GwNeFWzvgPQKFUTyHn1ZFwlloJP3v'
     access_token_secret = 'eXEmlEAdxaFjueVP03jsAWeOeNMkI7ToiDQkyvLDa6eX7'
-
+    nltk.download('punkt')
     num_of_tweets = int(300)
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
@@ -760,6 +765,8 @@ if principal_graphs_checkbox1 or principal_graphs_checkbox:
     plotData1()
 
 std_ret_checkbox = st.sidebar.checkbox('LSTM Prediction',value = True)
+
+#side_selectbox = st.sidebar.selectbox('How would you like to be contacted?',('1', '2', '3','4'))
 
 if std_ret_checkbox:
     st.title('LSTM Prediction')
