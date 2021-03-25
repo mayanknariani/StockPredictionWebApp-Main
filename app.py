@@ -192,9 +192,10 @@ def plotData1(ticker,start,end):
 
     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close']))
 
-    ma1_checkbox = st.checkbox('Moving Average 1')
 
-    ma2_checkbox = st.checkbox('Moving Average 2')
+    ma1_checkbox = st.checkbox('Fast Moving Average')
+
+    ma2_checkbox = st.checkbox('Slow Moving Average')
 
     if ma1_checkbox:
         days1 = st.slider('Slow Moving Average', 5, 50, 10)
@@ -210,7 +211,7 @@ def plotData1(ticker,start,end):
         #fig.legend(loc='best')
         fig.add_trace(go.Scatter(x=df.index, y=df['Close'].rolling(days2).mean(),line=dict(color='orange', width=1)))
 
-
+    st.write('The plot of the stock ',ticker,'is displayed below ','from the start date of ',str(start),'to the end date of',str(end))
     st.plotly_chart(fig)
     st.set_option('deprecation.showPyplotGlobalUse', False)
 
@@ -566,7 +567,7 @@ def def_model_lstm_GRU(X_train,y_train,X_test, ytest):
     model.add(GRU(10))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam',)
-    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=30, batch_size=64, verbose=1)
+    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=15, batch_size=64, verbose=1)
     train_predict = model.predict(X_train)
     test_predict = model.predict(X_test)
     return train_predict,test_predict,model
@@ -866,8 +867,9 @@ if check_dates() and pivot_date == True:
 
         series_info.name = 'Stock'
 
-        principal_graphs_checkbox = st.sidebar.checkbox('Stock prices and total returns', value = True)
+        principal_graphs_checkbox = st.sidebar.checkbox('Stock Visualisation', value = True)
         if principal_graphs_checkbox:
+            st.title('Stock Visualisation')
             plotData1(ticker, start, end)
 
         trailing_checkbox = st.sidebar.checkbox('Historical Prices and Volume')

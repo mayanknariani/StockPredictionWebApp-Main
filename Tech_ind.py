@@ -107,7 +107,7 @@ def tech_ind():
     adam = optimizers.Adam(lr=0.0005)
     model.compile(loss='mean_squared_error',optimizer=adam)
 
-    model.fit(x=[ohlcv_train, tech_ind_train], y=y_train, batch_size=10, epochs=20, shuffle=True, validation_split=0.3)
+    model.fit(x=[ohlcv_train, tech_ind_train], y=y_train, batch_size=10, epochs=10, shuffle=True, validation_split=0.3)
     #######
 
     y_test_predicted = model.predict([ohlcv_test, tech_ind_test])
@@ -127,7 +127,6 @@ def tech_ind():
     real_mse = np.mean(np.square(unscaled_y_test - y_test_predicted))
     scaled_mse = real_mse / (np.max(unscaled_y_test) - np.min(unscaled_y_test)) * 100
 
-    import matplotlib.pyplot as plt
     real = plt.plot(range(n,len(data)-51), unscaled_y_test[:-1], label='real')
     pred = plt.plot(range(n,len(data)-51),y_test_predicted[:-1], label='predicted')
     plt.legend(['Real', 'Predicted'])
