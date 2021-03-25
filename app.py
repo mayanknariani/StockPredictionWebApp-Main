@@ -37,8 +37,8 @@ import preprocessor as p
 import re
 
 
-#import keras.backend.tensorflow_backend as tb
-#tb._SYMBOLIC_SCOPE.value = True
+import keras.backend.tensorflow_backend as tb
+tb._SYMBOLIC_SCOPE.value = True
 
 
 def set_pub():
