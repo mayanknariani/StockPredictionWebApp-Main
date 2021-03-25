@@ -4,11 +4,16 @@ import streamlit as st
 import matplotlib.pyplot as plt, pandas as pd, numpy as np
 import matplotlib
 from PIL import Image
+from callback import LossAndErrorPrintingCallback
 matplotlib.use('Agg')
 from fbprophet import Prophet
-
+from sklearn.metrics import mean_squared_error,mean_absolute_error
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from datetime import datetime
+from functools import reduce
+from Tech_ind import *
+from keras.layers.recurrent import GRU
 from alpha_vantage.foreignexchange import ForeignExchange
 from matplotlib.pyplot import rc
 from pandas_datareader import data as pdr
@@ -28,12 +33,12 @@ import tweepy
 import pandas as pd
 from textblob import TextBlob
 import preprocessor as p
-from preprocessor import api
+#from preprocessor import api
 import re
 
 
-import keras.backend.tensorflow_backend as tb
-tb._SYMBOLIC_SCOPE.value = True
+#import keras.backend.tensorflow_backend as tb
+#tb._SYMBOLIC_SCOPE.value = True
 
 
 def set_pub():
@@ -43,9 +48,9 @@ def set_pub():
     plt.style.use('bmh')
     rc('lines', linewidth=1.3, color='b')
 
-
+@st.cache(suppress_st_warning=True)
 def loadData(ticker, start, end):
-     df_stockdata = pdr.get_data_yahoo(ticker, start= str(start), end = str(end) )['Adj Close']
+     df_stockdata = pdr.get_data_yahoo(ticker, start= str(start), end = str(end))
      df_stockdata.index = pd.to_datetime(df_stockdata.index)
      return df_stockdata
 
@@ -97,9 +102,9 @@ def plotData(ticker, start, end):
     fig, ax = plt.subplots(2,1)
     st.set_option('deprecation.showPyplotGlobalUse', False)
 
-    ma1_checkbox = st.checkbox('Moving Average 1')
+    ma1_checkbox = st.checkbox('Fast Moving Average')
 
-    ma2_checkbox = st.checkbox('Moving Average 2')
+    ma2_checkbox = st.checkbox('Slow Average 2')
 
     ax[0].set_title('Adj Close Price %s' % ticker, fontdict = {'fontsize' : 15})
     ax[0].plot(df_stockdata.index, df_stockdata.values,'g-',linewidth=1.6)
@@ -107,12 +112,12 @@ def plotData(ticker, start, end):
     ax[0].grid(True)
 
     if ma1_checkbox:
-        days1 = st.slider('Business Days to roll MA1', 5, 150, 30)
+        days1 = st.slider('Business Days to roll MA1', 5, 50, 1)
         ma1 = df_stockdata.rolling(days1).mean()
         ax[0].plot(ma1, 'b-', label = 'MA %s days'%days1)
         ax[0].legend(loc = 'best')
     if ma2_checkbox:
-        days2 = st.slider('Business Days to roll MA2', 5, 150, 30)
+        days2 = st.slider('Business Days to roll MA2', 5, 200, 1)
         ma2 = df_stockdata.rolling(days2).mean()
         ax[0].plot(ma2, color = 'magenta', label = 'MA %s days'%days2)
         ax[0].legend(loc = 'best')
@@ -167,15 +172,12 @@ def prophet():
     st.pyplot(fig)
 
 
-def plotData1():
-    df = get_historical(from1,to1,timeframe)
+def plotData1(ticker,start,end):
+    df = loadData(ticker,start,end)
 
     df.index = pd.to_datetime(df.index)
-
+    #st.write(df)
     #set_pub()
-
-
-
     #df['MA5'] = df.close.rolling(5).mean()
     #df['MA20'] = df.close.rolling(20).mean()
 
@@ -227,14 +229,16 @@ def plot_std_ret(ticker, start, end):
         std = ret.values.std()
         return (ret - mean) / std
 
-    fig, ax = plt.subplots(figsize=(9,4))
-    df_stockdata = loadData(ticker, start, end)
-    ax.plot(df_stockdata.index[1:],
-          standard_ret(df_stockdata).values)
-    ax.set_title('Standardized daily total returns %s'%ticker, fontdict = {'fontsize' : 15})
-    ax.set_xlim(ax.get_xlim()[0] - 10, ax.get_xlim()[1] + 10)
-    plt.grid(True)
-    st.pyplot()
+
+    from bokeh.plotting import figure
+
+    #fig, ax = plt.subplots(figsize=(9,4))
+    df_stockdata = loadData(ticker, start, end)['Adj Close']
+    #ax.plot(df_stockdata.index[1:],standard_ret(df_stockdata).values)
+    st.area_chart(standard_ret(df_stockdata).values)
+    #ax.set_title('Standardized daily total returns %s'%ticker)
+    #ax.set_xlim(ax.get_xlim()[0] - 10, ax.get_xlim()[1] + 10)
+    #plt.grid(True)
 
 
 def plot_trailing(ticker, start, end):
@@ -324,16 +328,16 @@ def plot_trailing(ticker, start, end):
     st.dataframe(df_outliers.sort_values(by = 'Left tail',ascending = False))
 
 
-
+st.cache(suppress_st_warning=True)
 def rolling_sharpe_plot(ticker, start, end):
-    data_ = loadData(ticker, start, end)
+    data_ = loadData(ticker, start, end)['Close']
     ret = data_.pct_change()[1:]
     start_sp = data_.index[0].strftime('%Y-%m-%d')
-    sp500 = pdr.get_data_yahoo('^SP500TR', start= start_sp, end = str(end) )
+    sp500 = pdr.get_data_yahoo('^SP500TR', start= start_sp, end = str(end))
     sp500_ret = sp500['Close'].pct_change()[1:]
 
     days2 = st.slider('Business Days to roll', 5, 130, 50)
-    rs_sp500 = sp500_ret.rolling(days2).apply(rolling_sharpe)
+    rs_sp500 = sp500_ret.rolling(days2).apply(rolling_sharpe)[:-1]
     rs = ret.rolling(days2).apply(rolling_sharpe)
     fig, ax = plt.subplots(figsize=(10,4))
     ax.plot(rs.index, rs.values, 'b-', label = 'Geometric Rolling Sharpe %s'%ticker)
@@ -345,17 +349,15 @@ def rolling_sharpe_plot(ticker, start, end):
     st.pyplot()
 
 
-''' # Summary of results'''
-
 sp500_list = pd.read_csv('SP500_list.csv')
 Currency_list = pd.read_csv('Currency_list.csv')
 
 
 #ticker = st.selectbox('Select the ticker if present in the S&P 500 index', sp500_list['Symbol'], index = 5).upper()
-ticker1 = st.selectbox('Select the following Forex ticker',Currency_list['Symbol'], index = 2)
-from1 = ticker1[0:3]
-to1 = ticker1[3:]
-pivot_sector = True
+# ticker1 = st.selectbox('Select the following Forex ticker',Currency_list['Symbol'], index = 2)
+# from1 = ticker1[0:3]
+# to1 = ticker1[3:]
+# pivot_sector = True
 
 #checkbox_noSP = st.checkbox('Select this box to write the ticker (if not present in the S&P 500 list). \ Deselect to come back to the S&P 500 index stock list')
 #if checkbox_noSP:
@@ -365,7 +367,7 @@ pivot_sector = True
 #start = st.text_input('Enter the start date in yyyy-mm-dd format:', '2018-01-01')
 #end = st.text_input('Enter the end date in yyyy-mm-dd format:', '2019-01-01')
 
-timeframe = st.selectbox('Please enter the timeframe:',Currency_list['Timeframe'], index = 2)
+# timeframe = st.selectbox('Please enter the timeframe:',Currency_list['Timeframe'], index = 2)
 
 @st.cache(suppress_st_warning=True)
 def get_historical(from1,to1,timeframe):
@@ -405,12 +407,8 @@ def time_pred(timeframe):
     elif (timeframe.strip() == '240min'):
         return 600
 
-
-
-
-
 import numpy
-def create_dataset(dataset, time_step=300):
+def create_dataset(dataset, time_step=100):
 	dataX, dataY = [], []
 	for i in range(len(dataset)-time_step-1):
 		a = dataset[i:(i+time_step), 0]   ###i=0, 0,1,2,3-----99   100
@@ -559,55 +557,84 @@ def recommending(df, global_polarity, today_stock, mean=1.5):
 
     return idea, decision
 
+
+
+st.cache(suppress_st_warning=True)
+def def_model_lstm_GRU(X_train,y_train,X_test, ytest):
+    model = Sequential()
+    model.add(LSTM(10, return_sequences=True,input_shape=(50, 1)))
+    model.add(GRU(10))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam',)
+    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=30, batch_size=64, verbose=1)
+    train_predict = model.predict(X_train)
+    test_predict = model.predict(X_test)
+    return train_predict,test_predict,model
+
+@st.cache(suppress_st_warning=True)
 def lstm():
     from sklearn.preprocessing import MinMaxScaler
-    df = get_historical(from1,to1,timeframe)
-    df.index = pd.to_datetime(df.index)
-    #df = reset_my_index(df)
+    df = loadData(ticker,start,end)
+    df = df['Close']
 
     #Preprocessing
     scaler = MinMaxScaler(feature_range=(0, 1))
     df1 = scaler.fit_transform(np.array(df).reshape(-1, 1))
 
     training_size = int(len(df1) * 0.7)
+
     test_size = len(df1) - training_size
     train_data, test_data = df1[0:training_size, :], df1[training_size:len(df1), :1]
 
-    time_step = time_pred(timeframe)
+
+    time_step = 50 #time_pred(timeframe)
     X_train, y_train = create_dataset(train_data, time_step)
     X_test, ytest = create_dataset(test_data, time_step)
 
-    #print(X_train.shape), print(y_train.shape)
-    #print(X_test.shape), print(ytest.shape)
 
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
     X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+    import time
 
-    model = Sequential()
-    model.add(LSTM(40, return_sequences=False,input_shape=(300, 1)))
-    #model.add(LSTM(50, return_sequences=True))
-    #model.add(LSTM(50))
-    model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    st.cache(suppress_st_warning=True)
+    def def_model_lstm_stacked(X_train,y_train,X_test, ytest):
+        model = Sequential()
+        model.add(LSTM(10, return_sequences=True,input_shape=(50, 1)))
+        model.add(LSTM(10))
+        model.add(Dense(1))
+        model.compile(loss='mean_squared_error', optimizer='adam')
 
-    model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=5, batch_size=64, verbose=1)
+        model.fit(X_train,y_train,validation_data=(X_test,ytest),epochs=10,batch_size=40,verbose=1)
+        train_predict = model.predict(X_train)
+        test_predict = model.predict(X_test)
+        return train_predict,test_predict,model
 
-    train_predict = model.predict(X_train)
-    test_predict = model.predict(X_test)
+    train_predict,test_predict,model= def_model_lstm_stacked(X_train,y_train,X_test, ytest)
+
+    # model = Sequential()
+    # model.add(LSTM(10, return_sequences=True,input_shape=(50, 1)))
+    # model.add(LSTM(10))
+    # model.add(Dense(1))
+    # model.compile(loss='mean_squared_error', optimizer='adam',)
+    # model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=1, batch_size=64, verbose=1)
+    # train_predict = model.predict(X_train)
+    # test_predict = model.predict(X_test)
+
+    import math
+
+    mse= mean_squared_error(y_train, train_predict)
+    mae = mean_absolute_error(ytest, test_predict)
+    real_mse = np.mean(np.square(ytest - test_predict))
+    scaled_mse = real_mse / (np.max(ytest) - np.min(ytest)) * 100
 
     train_predict = scaler.inverse_transform(train_predict)
     test_predict = scaler.inverse_transform(test_predict)
 
-    import math
-    from sklearn.metrics import mean_squared_error
-
-    x= math.sqrt(mean_squared_error(y_train, train_predict))
-
-    x = math.sqrt(mean_squared_error(ytest, test_predict))
 
 
-    #fig = plt.figure(figsize=(10, 6), dpi=100)
-    look_back = time_pred(timeframe)
+    fig = plt.figure(figsize=(10, 6), dpi=100)
+    ax = fig.add_subplot(1,1,1)
+    look_back = 50 #time_pred(timeframe)
     trainPredictPlot = numpy.empty_like(df1)
     trainPredictPlot[:, :] = np.nan
     trainPredictPlot[look_back:len(train_predict) + look_back, :] = train_predict
@@ -618,203 +645,300 @@ def lstm():
     # plot baseline and predictions
 
 
-    plt.plot(scaler.inverse_transform(df1))
-    plt.plot(trainPredictPlot)
-    plt.legend(loc='best')
-    plt.plot(testPredictPlot)
-    plt.grid(True)
-    plt.show()
-    plt.tight_layout()
-    st.pyplot()
+    ax.plot(scaler.inverse_transform(df1))
+    ax.plot(trainPredictPlot)
+    ax.plot(loc='best')
+    ax.plot(testPredictPlot)
+    ax.grid(True)
+    st.pyplot(fig)
+    #plt.show()
+    #plt.tight_layout()
+    #st.pyplot()
 
 
-    x_input = test_data[len(test_data) - time_pred(timeframe):].reshape(1, -1)
-    temp_input = list(x_input)
-    temp_input = temp_input[0].tolist()
+    # x_input = test_data[len(test_data) - 50:].reshape(1, -1)
+    # temp_input = list(x_input)
+    # temp_input = temp_input[0].tolist()
+    #
+    #
+    # lst_output = []
+    # n_steps = 50
+    # i = 0
+    # while (i < 50):
+    #
+    #     if (len(temp_input) > n_steps):
+    #         # print(temp_input)
+    #         x_input = np.array(temp_input[1:])
+    #         # print("{} 15 mins input {}".format(i,x_input))
+    #         x_input = x_input.reshape(1, -1)
+    #         x_input = x_input.reshape((1, n_steps, 1))
+    #         # print(x_input)
+    #         yhat = model.predict(x_input, verbose=0)
+    #         # print("{} 15 mins output {}".format(i,yhat))
+    #         temp_input.extend(yhat[0].tolist())
+    #         temp_input = temp_input[1:]
+    #         # print(temp_input)
+    #         lst_output.extend(yhat.tolist())
+    #         i = i + 1
+    #     else:
+    #         x_input = x_input.reshape((1, n_steps, 1))
+    #         yhat = model.predict(x_input, verbose=0)
+    #         # print(yhat[0])
+    #         temp_input.extend(yhat[0].tolist())
+    #         # print(len(temp_input))
+    #         lst_output.extend(yhat.tolist())
+    #         i = i + 1
+    #
+    # # print(lst_output)
+    #
+    # #day_new = np.arange(1, 101)
+    # #day_pred = np.arange(101, 131)
+    #
+    # df3 = df1.tolist()
+    # df3.extend(lst_output)
+    #
+    # predictions = scaler.inverse_transform(lst_output)
+    # mid = len(predictions) / 2
+    #
+    # if ((predictions[0] > predictions[int(mid)]) and (predictions[0] > predictions[-1])):
+    #     out1= str("SELL @ %3f" % predictions[0])
+    #     exit1 = str("TAKE PROFIT @ %3f" % predictions[49])
+    # elif ((predictions[0] < predictions[int(mid)] and predictions[0] < predictions[-1])):
+    #     out1 = str("BUY @ %3f" % predictions[0])
+    #     exit1 = str("TAKE PROFIT @ %3f" % predictions[49])
+    # else:
+    #     out1= "HOLD"
+    #     exit1 = 'HOLD'
+    #
+    # x1 = len(df3) - 50
+    # history = scaler.inverse_transform(df3[:-50])
+    # prediction = scaler.inverse_transform(df3[int(x1):])
+
+    # day_new = np.arange(0, len(df1))
+    # day_pred = np.arange(len(df1), len(df1) + 50)
+    #
+    #
+    # plt.plot(day_new, history, label='Previous')
+    # plt.plot(day_pred, prediction, label='Prediction')
+    # plt.show()
+    # plt.legend(loc='best')
+    # plt.grid(True)
+    # plt.tight_layout()
+    # st.pyplot()
+
+    return mse,mae,scaled_mse
 
 
-    lst_output = []
-    n_steps = time_pred(timeframe)
-    i = 0
-    while (i < 300):
+def lstm_GRU():
+    from sklearn.preprocessing import MinMaxScaler
+    df = loadData(ticker,start,end)
+    df = df['Close']
 
-        if (len(temp_input) > n_steps):
-            # print(temp_input)
-            x_input = np.array(temp_input[1:])
-            # print("{} 15 mins input {}".format(i,x_input))
-            x_input = x_input.reshape(1, -1)
-            x_input = x_input.reshape((1, n_steps, 1))
-            # print(x_input)
-            yhat = model.predict(x_input, verbose=0)
-            # print("{} 15 mins output {}".format(i,yhat))
-            temp_input.extend(yhat[0].tolist())
-            temp_input = temp_input[1:]
-            # print(temp_input)
-            lst_output.extend(yhat.tolist())
-            i = i + 1
-        else:
-            x_input = x_input.reshape((1, n_steps, 1))
-            yhat = model.predict(x_input, verbose=0)
-            # print(yhat[0])
-            temp_input.extend(yhat[0].tolist())
-            # print(len(temp_input))
-            lst_output.extend(yhat.tolist())
-            i = i + 1
+    #Preprocessing
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    df1 = scaler.fit_transform(np.array(df).reshape(-1, 1))
 
-    # print(lst_output)
+    training_size = int(len(df1) * 0.7)
 
-    #day_new = np.arange(1, 101)
-    #day_pred = np.arange(101, 131)
-
-    df3 = df1.tolist()
-    df3.extend(lst_output)
-
-    predictions = scaler.inverse_transform(lst_output)
-    mid = len(predictions) / 2
-
-    if ((predictions[0] > predictions[int(mid)]) and (predictions[0] > predictions[-1])):
-        out1= str("SELL @ %3f" % predictions[0])
-        exit1 = str("TAKE PROFIT @ %3f" % predictions[299])
-    elif ((predictions[0] < predictions[int(mid)] and predictions[0] < predictions[-1])):
-        out1 = str("BUY @ %3f" % predictions[0])
-        exit1 = str("TAKE PROFIT @ %3f" % predictions[299])
-    else:
-        out1= "HOLD"
-        exit1 = 'HOLD'
-
-    x1 = len(df3) - 300
-    history = scaler.inverse_transform(df3[:-300])
-    prediction = scaler.inverse_transform(df3[int(x1):])
-
-    day_new = np.arange(0, len(df1))
-    day_pred = np.arange(len(df1), len(df1) + 300)
+    test_size = len(df1) - training_size
+    train_data, test_data = df1[0:training_size, :], df1[training_size:len(df1), :1]
 
 
-    plt.plot(day_new, history, label='Previous')
-    plt.plot(day_pred, prediction, label='Prediction')
-    plt.show()
-    plt.legend(loc='best')
-    plt.grid(True)
-    plt.tight_layout()
-    st.pyplot()
+    time_step = 50 #time_pred(timeframe)
+    X_train, y_train = create_dataset(train_data, time_step)
+    X_test, ytest = create_dataset(test_data, time_step)
 
-    st.text(out1)
-    st.text(exit1)
 
-#try:
-    #start = parse(start).date()
+    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+
+    train_predict,test_predict,model= def_model_lstm_GRU(X_train,y_train,X_test, ytest)
+
+    # model = Sequential()
+    # model.add(LSTM(10, return_sequences=True,input_shape=(50, 1)))
+    # model.add(LSTM(10))
+    # model.add(Dense(1))
+    # model.compile(loss='mean_squared_error', optimizer='adam',)
+    # model.fit(X_train, y_train, validation_data=(X_test, ytest), epochs=1, batch_size=64, verbose=1)
+    # train_predict = model.predict(X_train)
+    # test_predict = model.predict(X_test)
+
+    import math
+    from sklearn.metrics import mean_squared_error,mean_absolute_error
+    import matplotlib.pyplot as plt
+    mse= mean_squared_error(y_train, train_predict)
+    mae = mean_absolute_error(ytest, test_predict)
+    real_mse = np.mean(np.square(ytest - test_predict))
+    scaled_mse = real_mse / (np.max(ytest) - np.min(ytest)) * 100
+
+    train_predict = scaler.inverse_transform(train_predict)
+    test_predict = scaler.inverse_transform(test_predict)
+
+
+
+    fig = plt.figure(figsize=(10, 6), dpi=100)
+    ax = fig.add_subplot(1,1,1)
+    look_back = 50 #time_pred(timeframe)
+    trainPredictPlot = numpy.empty_like(df1)
+    trainPredictPlot[:, :] = np.nan
+    trainPredictPlot[look_back:len(train_predict) + look_back, :] = train_predict
+    # shift test predictions for plotting
+    testPredictPlot = numpy.empty_like(df1)
+    testPredictPlot[:, :] = numpy.nan
+    testPredictPlot[len(train_predict) + (look_back * 2) + 1:len(df1) - 1, :] = test_predict
+    # plot baseline and predictions
+
+
+    ax.plot(scaler.inverse_transform(df1))
+    ax.plot(trainPredictPlot)
+    ax.plot(loc='best')
+    ax.plot(testPredictPlot)
+    ax.grid(True)
+    st.pyplot(fig)
+
+    return mse,mae,scaled_mse
+
+''' # Stock Market Prediction Dashboard '''
+
+sp500_list = pd.read_csv('SP500_list.csv')
+
+ticker = st.selectbox('Select ticker (present in the S&P 500 index)', sp500_list['Symbol'], index = 50).upper()
+pivot_sector = True
+
+checkbox_noSP = st.checkbox('If not present in the S&P 500 list, select this box. \
+                            Deselect in order to come back to the S&P 500 index stock list')
+
+if checkbox_noSP:
+    ticker1 = st.text_input('Enter the ticker (not present in S&P 500 index)', 'MN.MI').upper()
+    ticker = ticker1
+    pivot_sector = False
+
+
+start = st.text_input('Enter the start date in yyyy-mm-dd format:', '2000-01-01')
+end = st.text_input('Enter the end date in yyyy-mm-dd format:', datetime.today().strftime('%Y-%m-%d'))
+
+
+
+try:
+    start = parse(start).date()
     #print('The start date is valid')
-    #ontrol_date1 = True
-#except ValueError:
-    #st.error('Invalid Start date')
-    #control_date1 = False
+    control_date1 = True
+except ValueError:
+    st.error('Invalid Start date')
+    control_date1 = False
 
-
-#try:
-    #end = parse(end).date()
+try:
+    end = parse(end).date()
     #print('The end date is valid')
-    #control_date2 = True
-#except ValueError:
-    #st.error('Invalid End date')
-    #control_date2 = False
+    control_date2 = True
+except ValueError:
+    st.error('Invalid End date')
+    control_date2 = False
 
-#def check_dates():
- #   return control_date1 & control_date2
-
-
-#if start <= datetime(2000,1,1,0).date():
-    #st.error('Please insert a date posterior to 1st January 1970')
-    #pivot_date = False
-    #else:
-    #pivot_date = True
+def check_dates():
+    return control_date1 & control_date2
 
 
-#if check_dates() and pivot_date == True:
+if start <= datetime(1970,1,1,0,0).date():
+    st.error('Please insert a date posterior to 1st January 1970')
+    pivot_date = False
+else:
+    pivot_date = True
+
+if check_dates() and pivot_date == True:
+
+    if len(loadData(ticker, start, end)) > 0: # if the ticker is invalid the function returns an empty series
+
+        image = Image.open('Image.jpeg')
+
+        st.sidebar.image(image, caption='',use_column_width=True)
+        st.sidebar.header('Stock Prediction Dashboard')
+        st.sidebar.subheader('Choose option to visualize')
+
+        ticker_meta = yf.Ticker(ticker)
+
+        series_info  = pd.Series(ticker_meta.info,index = reversed(list(ticker_meta.info.keys())))
+        series_info = series_info.loc[['symbol', 'shortName','exchange', 'exchangeTimezoneName', 'marketCap', 'quoteType']]
+        if pivot_sector:
+            sector = sp500_list[sp500_list['Symbol'] == ticker]['Sector']
+            sector = sector.values[0]
+            series_info['sector'] = sector
+
+        series_info.name = 'Stock'
+
+        principal_graphs_checkbox = st.sidebar.checkbox('Stock prices and total returns', value = True)
+        if principal_graphs_checkbox:
+            plotData1(ticker, start, end)
+
+        trailing_checkbox = st.sidebar.checkbox('Historical Prices and Volume')
+        if trailing_checkbox:
+            st.title('Historical Prices and Volume ')
+            st.markdown('''The acquired dataset is shown below as a table: ''')
+            get_data_yahoo(ticker, start, end)
+
+        std_ret_checkbox = st.sidebar.checkbox('Standardized daily total returns')
+        if std_ret_checkbox:
+            st.title('Standardized daily total returns')
+            st.markdown('''The daily total return in % is shown as a graph''')
+            plot_std_ret(ticker, start, end)
+
+        rs_checkbox = st.sidebar.checkbox('Rolling Sharpe ratio vs Rolling Sharpe ratio S&P500, (annualized)')
+
+        if rs_checkbox:
+            st.title('Rolling Sharpe Ratio')
+            st.markdown('''It is a useful technique to compare the historical performance of a fund. 
+            The is because RSR gives investors a time-varying performance
+            The geometric rolling sharpe ratio(RSR) of the stock is compared with the geometric rolling sharpe ratio of S&P500 index.
+            The RSR is calculated by fixing the risk free rate equal to 0. The formula is shown below:
+            ''')
+            image1 = Image.open('Sharpe.png')
+            st.image(image1)
+            rolling_sharpe_plot(ticker, start, end)
 
 
-    #if len(loadData(ticker, start, end)) > 0: # if the ticker is invalid the function returns an empty series
+        fundamental_checkbox = st.sidebar.checkbox('Stacked LSTM Model')
+        if fundamental_checkbox:
+            st.title('Stacked LSTM Model')
+            image2 = Image.open('LSTM_Stacked.jpeg')
+            st.image(image2,caption='Model Architecture')
+            st.markdown('''Closing price feature is passed as input to the first LSTM layer, LSTM_0. LSTM_0 neurons collect data, and a weighted value is generated that is passed to the second LSTM layer, LSTM_1. After a weighted value is generated along the path from LSTM_1, it is passed to the dense layer,dense_out. A weighted value is also generated in the dense layer and is used to produce the output. Weighted value is passed to the output neuron and weight is generated accordingly. 
+The output is compared with the original value for the calculation of the error function. Weighted values are updated until the model reaches a minimum cost.
+''')
+            mse,mae,adjuted_mse = lstm()
 
+            '''## Mean Squared Error(MSE): ''' + str(mse)
+            '''## Mean Absolute Error(MAE): ''' + str(mae)
+            '''## Adjusted MSE: ''' + str(adjuted_mse)
 
-image = Image.open('imageforapp2.jpg')
+        fundamental_checkbox1 = st.sidebar.checkbox('LSTM-GRU Hybrid Model')
+        if fundamental_checkbox1:
+            st.title('LSTM-GRU Hybrid Model')
+            image3 = Image.open('LSTM_GRU.jpeg')
+            st.image(image3,caption='Model Architecture')
+            st.markdown('''Closing price feature is passed as input to the first LSTM layer. The LSTM_0 layer neurons collect data and a weighted value is generated that is passed to the GRU_0 layer. After a weighted value is generated along the path from the GRU_0 layer, it is passed to the dense layer. A weighted value is also generated in the dense layer and is used to produce the output. Weighted value is passed to the output neuron and weight is generated accordingly.  ''')
 
-st.sidebar.image(image, caption='', use_column_width=True)
+            mse,mae,adjuted_mse = lstm_GRU()
+            '''## Mean Squared Error(MSE): ''' + str(mse)
+            '''## Mean Absolute Error(MAE): ''' + str(mae)
+            '''## Adjusted MSE: ''' + str(adjuted_mse)
 
-st.sidebar.header('Stock prediction analysis')
+        fundamental_checkbox2 = st.sidebar.checkbox('LSTM-Technical Indicator Hybrid Model')
+        if fundamental_checkbox2:
+            st.title('LSTM-Technical Indicator Hybrid Model')
+            image4 = Image.open('LSTM_Tech.jpeg')
+            st.image(image4,caption='Model Architecture')
+            st.markdown('''Closing price feature is passed as input to the first LSTM layer, LSTM_0, while the technical indicator is passed to the tech_input layer in the other branch. LSTM_1 neuron collects data, and a weighted value is generated that is passed to the second LSTM layer, LSTM_2. A dropout layer is added,LSTM_dropout that is added to prevent overfitting and is passed to the concatenation layer.
+On the other branch, the MACD indicator values are added to the tech_input layer. After a weighted value is generated along the path from the tech_input layer, it is passed to the dense layer, tech_dense_0. A weighted value is also generated in the tech_dense_0 layer and is used to produce the output. It is then passed to an activation function of sigmoid as well as a dropout layer.
+The outputs are combined in the dense_pooling layer and then the dense_out layer. This output is compared with the original value for the calculation of error function. Weighted values are updated until the model reaches a minimum cost.
+''')
+            mse,mae,adjuted_mse = tech_ind()
 
-st.sidebar.subheader('Please select option to visualise ')
+            '''## Mean Squared Error(MSE): ''' + str(mse)
+            '''## Mean Absolute Error(MAE): ''' + str(mae)
+            '''## Adjusted MSE: ''' + str(adjuted_mse)
 
-#ticker_meta = yf.Ticker(ticker)
-
-#series_info  = pd.Series(ticker_meta.info)
-#series_info= series_info.reindex(reversed(list(ticker_meta.info.keys())))
-#series_info = series_info.loc[['symbol', 'shortName', 'financialCurrency','exchange',
-                  #'fullExchangeName', 'exchangeTimezoneName', 'marketCap', 'quoteType']]
-#if pivot_sector:
-    #sector = sp500_list[sp500_list['Symbol'] == ticker]['Sector']
-    #sector = sector.values[0]
-    #series_info['sector'] = sector
-
-
-#series_info.name = 'Stock'
-#st.dataframe(series_info)
-
-principal_graphs_checkbox = st.sidebar.checkbox('Stock selection: ', value = True)
-
-principal_graphs_checkbox1 = st.button('Submit')
-if principal_graphs_checkbox1 or principal_graphs_checkbox:
-    plotData1()
-
-std_ret_checkbox = st.sidebar.checkbox('LSTM Prediction',value = True)
-
-#side_selectbox = st.sidebar.selectbox('How would you like to be contacted?',('1', '2', '3','4'))
-
-if std_ret_checkbox:
-    st.title('LSTM Prediction')
-    #st.warning('Calculating .... ')
-    st.subheader(lstm())
-
-std_ret_checkbox1 = st.sidebar.checkbox('Facebook Prophet Prediction',value = True)
-if std_ret_checkbox1:
-    st.title('Facebook Prophet Prediction')
-    st.subheader(prophet())
-
-trailing_checkbox = st.sidebar.checkbox('Sentiment Analysis',value=True)
-if trailing_checkbox:
-    st.title('Twitter Sentiment Analysis')
-    st.subheader(retrieving_tweets_polarity(ticker1))
-
-
-    #st.subheader('Interquartile range : Q3 - Q1')
-    #st.subheader('Upper threshold : Q3 + 1.5IQR')
-    #st.subheader('Lower threshold : Q1 - 1.5IQR')
-    #st.write('')
-    #plot_trailing(ticker, start, end)
-
-# fundamental_checkbox = st.sidebar.checkbox('Fundamental Analysis')
-# if fundamental_checkbox:
-    #''' ## Fundamental analysis '''
-   # st.title('Summary')
-    #st.dataframe(summary_stats(ticker))
-
-  #  st.title('Ratios and indicators')
-  #  st.dataframe(ratio_indicators(ticker))
-
-#rs_checkbox = st.sidebar.checkbox('Rolling Sharpe ratio vs Rolling Sharpe ratio S&P500, (annualized)')
-# if rs_checkbox:
- #   ''' # Rolling Sharpe Ratio '''
-#     ''' We compare the geometric rolling sharpe ratio (RSR) of the stock with the geometric rolling sharpe ratio of S&P500 (TR).
-#    We calculate the RSR by fixing the risk free rate equal to 0.
-#    Hence *RSR = rolling_returns_mean / rolling_returns_std*.
-##    '''
- #   rolling_sharpe_plot(ticker, start, end)
-
-#historical_prices_checkbox = st.sidebar.checkbox('Historical prices and volumes')
-#if historical_prices_checkbox:
- #   st.title('Historical prices and volumes')
-  #  get_data_yahoo(ticker, start, end)
-
-    #else:
-        #st.error('Invalid ticker')
+    else:
+        st.error('Invalid ticker')
 
 
 

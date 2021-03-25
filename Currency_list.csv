@@ -1,7 +1,8 @@
 Symbol,Timeframe
-EURUSD, 1min
-GBPUSD, 5min
-USDCHF, 15min
-USDCAD, 30min
-NZDUSD, 60min
+EURUSD, 1m
+, 2m
+GBPUSD,5m
+USDCHF,15m
+USDCAD,30m
+NZDUSD,60m
 
