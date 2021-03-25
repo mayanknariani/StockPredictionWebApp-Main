@@ -230,7 +230,7 @@ def plot_std_ret(ticker, start, end):
         return (ret - mean) / std
 
 
-    from bokeh.plotting import figure
+    #from bokeh.plotting import figure
 
     #fig, ax = plt.subplots(figsize=(9,4))
     df_stockdata = loadData(ticker, start, end)['Adj Close']

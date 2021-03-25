@@ -2,8 +2,6 @@ streamlit
 matplotlib
 numpy 
 pandas
-FundamentalAnalysis
-fbprophet
 sklearn
 keras ==2.3.1
 tweepy
@@ -14,6 +12,7 @@ alpha-vantage
 tweet-preprocessor
 yfinance
 scipy
+datetime
 plotly
 pandas-datareader
 pillow
