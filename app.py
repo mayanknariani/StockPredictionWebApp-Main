@@ -12,12 +12,9 @@ np.random.seed(4)
 import tensorflow
 tensorflow.random.set_seed(4)
 import streamlit as st
-import matplotlib.pyplot as plt, pandas as pd, numpy as np
 import matplotlib
 from PIL import Image
-from callback import LossAndErrorPrintingCallback
 matplotlib.use('Agg')
-from fbprophet import Prophet
 from sklearn.metrics import mean_squared_error,mean_absolute_error
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
