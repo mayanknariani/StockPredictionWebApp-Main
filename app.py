@@ -1,4 +1,3 @@
-import FundamentalAnalysis as fa
 import nltk
 import yfinance as yf
 yf.pdr_override()
